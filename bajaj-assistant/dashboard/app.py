@@ -110,6 +110,6 @@ else:
     st.pyplot(fig)
 
 st.divider()
-st.subheader("Orchestrator observability (coming in Stage 5)")
+# st.subheader("Orchestrator observability (coming in Stage 5)")
 # Placeholder slot only — token usage / latency views land here once
 # app/observability/logger.py exists. Not built yet.

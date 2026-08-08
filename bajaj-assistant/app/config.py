@@ -11,3 +11,7 @@ FACTSHEET_PDF_PATH = RAW_DATA_DIR / "Factsheet_July-2026.pdf"
 MODELS_DIR = PROJECT_ROOT / "models"
 CROSSSELL_MODEL_PATH = MODELS_DIR / "crosssell_model.joblib"
 CROSSSELL_FEATURE_COLUMNS_PATH = MODELS_DIR / "feature_columns.joblib"
+
+PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+FUND_FAISS_INDEX_PATH = PROCESSED_DATA_DIR / "fund_index.faiss"
+FUND_CHUNKS_PATH = PROCESSED_DATA_DIR / "fund_chunks.joblib"
