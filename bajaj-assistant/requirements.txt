@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pandas
+scikit-learn
+sentence-transformers
+faiss-cpu
+pypdf
+python-multipart
+anthropic
+python-dotenv
+pytest
