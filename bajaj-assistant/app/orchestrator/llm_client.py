@@ -22,7 +22,6 @@ from groq import Groq
 from app.funds.retrieve import retrieve
 from app.loan.tools import get_loan_details
 from app.orchestrator.prompts import build_system_prompt
-from app.orchestrator.session import get_session
 
 load_dotenv()
 
@@ -85,7 +84,10 @@ TOOLS = [
 _client = None
 
 
-def _get_client() -> Groq:
+def get_groq_client() -> Groq:
+    """Public so chat_ui/app.py can reuse it for Whisper transcription
+    (client.audio.transcriptions.create) without duplicating the
+    API-key-loading logic."""
     global _client
     if _client is None:
         api_key = os.environ.get("GROQ_API_KEY")
@@ -101,9 +103,9 @@ def _execute_tool_call(name: str, arguments: dict, session: dict) -> dict:
     """Run one tool call and return a JSON-serializable result.
 
     get_loan_details is always scoped to session["selected_lan"],
-    regardless of what LAN the model passed -- the customer's selection at
-    /session/select_account is the source of truth, not anything the LLM
-    decides to look up.
+    regardless of what LAN the model passed -- the customer's account
+    selection (see app.orchestrator.session.select_account) is the source
+    of truth, not anything the LLM decides to look up.
     """
     if name == "get_loan_details":
         lan = session.get("selected_lan")
@@ -119,14 +121,16 @@ def _execute_tool_call(name: str, arguments: dict, session: dict) -> dict:
     return {"error": f"unknown tool: {name}"}
 
 
-def handle_turn(session_id: str, user_message: str) -> dict:
+def handle_turn(session: dict, user_message: str) -> dict:
     """Run one chat turn: build the prompt, call Groq, execute at most one
-    round of tool calls, then return the final answer + usage/latency."""
-    session = get_session(session_id)
-    if session is None:
-        raise ValueError(f"unknown session_id: {session_id}")
+    round of tool calls, then return the final answer + usage/latency.
 
-    client = _get_client()
+    Takes the session dict directly (owned by the caller, typically
+    st.session_state.session in chat_ui/app.py) and mutates it in place
+    (already_pitched, history) rather than returning a new dict to
+    reassign -- there's no session store here to write back to.
+    """
+    client = get_groq_client()
     system_prompt, pitch_included = build_system_prompt(session)
 
     messages = (
