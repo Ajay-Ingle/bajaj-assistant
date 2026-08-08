@@ -9,3 +9,8 @@ python-multipart
 anthropic
 python-dotenv
 pytest
+xgboost
+shap
+joblib
+matplotlib
+streamlit
