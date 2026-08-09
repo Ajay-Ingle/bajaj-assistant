@@ -68,11 +68,11 @@ customer_rows = df[df["MobileNo"] == selected_mobile]
 active_rows = customer_rows[customer_rows["Loan_status"] == "Active"]
 
 st.subheader("Raw active loan row(s)")
-st.dataframe(active_rows, use_container_width=True)
+st.dataframe(active_rows, width="stretch")
 
 st.subheader("Computed features")
 customer_features = all_features[all_features["mobile_no"] == selected_mobile]
-st.dataframe(customer_features, use_container_width=True)
+st.dataframe(customer_features, width="stretch")
 
 result = score_customer(selected_mobile, df=df)
 

@@ -11,34 +11,27 @@ Rules you must follow:
 """
 
 
-def build_system_prompt(session: dict) -> tuple[str, bool]:
-    """Build this turn's system prompt, appending a one-shot cross-sell
-    nudge if the session's propensity score recommends a pitch and one
-    hasn't been offered yet this session.
+def build_system_prompt(session: dict, should_attempt_pitch: bool) -> str:
+    """Build this turn's system prompt, appending a directive cross-sell
+    instruction when `should_attempt_pitch` is True.
 
-    Returns (system_prompt, cross_sell_instruction_included). The caller
-    (app/orchestrator/llm_client.py) is responsible for setting
-    session["already_pitched"] = True only after a response was actually
-    generated using this prompt -- so a pitch that was offered but the
-    turn failed doesn't get silently marked as used.
+    `should_attempt_pitch` is computed once by the caller
+    (app/orchestrator/llm_client.py:handle_turn) -- fixed to the session's
+    first user message, so pitch timing is deterministic/demoable rather
+    than left to "whenever the model feels it fits." The same flag is
+    reused after generation there to run a deterministic verify-and-patch
+    check, since a soft instruction alone isn't reliably followed.
     """
     prompt = BASE_SYSTEM_PROMPT
-    crosssell_result = session.get("crosssell_result")
 
-    include_pitch = bool(
-        crosssell_result
-        and crosssell_result.get("pitch_recommended")
-        and not session.get("already_pitched")
-    )
-
-    if include_pitch:
-        fund = get_pitchable_fund(crosssell_result["fund_tier"])
+    if should_attempt_pitch:
+        fund = get_pitchable_fund(session["crosssell_result"]["fund_tier"])
         prompt += (
-            f"\nIf it fits naturally in your response, you may mention that "
-            f"{fund} could be worth exploring given the customer's strong "
-            f"repayment profile -- keep it brief, one sentence, and don't "
-            f"force it if the user's question has nothing to do with "
-            f"savings or investing."
+            f"\nAfter answering the user's question, add one brief closing "
+            f"sentence recommending {fund} to them, referencing their "
+            f"strong repayment history as the reason. Phrase it naturally "
+            f"and keep it to one sentence, but make sure this sentence is "
+            f"included in your response."
         )
 
-    return prompt, include_pitch
+    return prompt

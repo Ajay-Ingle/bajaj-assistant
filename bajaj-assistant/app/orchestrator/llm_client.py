@@ -19,6 +19,7 @@ import time
 from dotenv import load_dotenv
 from groq import Groq
 
+from app.funds.fund_catalog import get_pitchable_fund
 from app.funds.retrieve import retrieve
 from app.loan.tools import get_loan_details
 from app.orchestrator.prompts import build_system_prompt
@@ -130,8 +131,21 @@ def handle_turn(session: dict, user_message: str) -> dict:
     (already_pitched, history) rather than returning a new dict to
     reassign -- there's no session store here to write back to.
     """
+    # Cross-sell pitch timing is fixed to the session's first user message
+    # (checked before this turn's message is appended to history below),
+    # not "whenever the model feels it fits" -- deterministic and
+    # demoable. crosssell_result is None when the customer has no active
+    # loans, so guard that explicitly rather than indexing into it.
+    crosssell_result = session.get("crosssell_result")
+    should_attempt_pitch = bool(
+        len(session["history"]) == 0
+        and crosssell_result is not None
+        and crosssell_result.get("pitch_recommended")
+        and not session.get("already_pitched")
+    )
+
     client = get_groq_client()
-    system_prompt, pitch_included = build_system_prompt(session)
+    system_prompt = build_system_prompt(session, should_attempt_pitch)
 
     messages = (
         [{"role": "system", "content": system_prompt}]
@@ -199,10 +213,24 @@ def handle_turn(session: dict, user_message: str) -> dict:
     else:
         final_text = assistant_message.content
 
-    latency_ms = round((time.perf_counter() - start) * 1000)
-
-    if pitch_included:
+    # Deterministic verification: don't just trust the LLM followed the
+    # system-prompt instruction to include the pitch -- check the actual
+    # final text, and patch it in code if the fund name is genuinely
+    # missing. Runs on the final text regardless of whether a tool-call
+    # round-trip happened this turn. The fallback sentence is folded into
+    # final_text before it's shown or stored, so from the user's side
+    # there's no visible distinction between a model-authored and a
+    # code-patched pitch.
+    if should_attempt_pitch:
+        recommended_fund = get_pitchable_fund(crosssell_result["fund_tier"])
+        if recommended_fund.lower() not in final_text.lower():
+            final_text += (
+                f" By the way, based on your account history, "
+                f"{recommended_fund} might be worth a look."
+            )
         session["already_pitched"] = True
+
+    latency_ms = round((time.perf_counter() - start) * 1000)
 
     session["history"].append({"role": "user", "content": user_message})
     session["history"].append({"role": "assistant", "content": final_text})
